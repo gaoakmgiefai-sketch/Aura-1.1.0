@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "auramod",
+  "version": "${version}",
+  "name": "Aura Mini Cheat",
+  "description": "Lightweight client mod: KillAura (Legit / HvH), Criticals, TriggerBot, ClickGUI",
+  "authors": ["Матвій"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.aura.AuraMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.8",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
