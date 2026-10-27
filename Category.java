@@ -3,7 +3,9 @@ package com.example.aura.module;
 public enum Category {
     COMBAT("Combat"),
     MOVEMENT("Movement"),
-    VISUAL("Visual");
+    VISUAL("Visuals"),
+    PLAYER("Player"),
+    MISC("Miscellaneous");
 
     public final String label;
 
