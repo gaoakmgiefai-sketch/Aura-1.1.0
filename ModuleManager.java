@@ -1,32 +1,58 @@
 package com.example.aura.module;
 
 import com.example.aura.AuraMod;
-import com.example.aura.modules.Criticals;
-import com.example.aura.modules.Fullbright;
-import com.example.aura.modules.HudModule;
-import com.example.aura.modules.KillAura;
-import com.example.aura.modules.Sprint;
-import com.example.aura.modules.TriggerBot;
+import com.example.aura.modules.*;
+import com.example.aura.util.Keys;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public final class ModuleManager {
     private static final List<Module> MODULES = new ArrayList<>();
+    private static final EnumMap<Category, List<Module>> BY_CAT = new EnumMap<>(Category.class);
 
     private ModuleManager() {}
 
     public static void init() {
+        clear();
+        // Combat
+        add(new KillAura());
+        add(new TriggerBot());
+        add(new Criticals());
+        add(new AntiBot());
+        add(new AutoTotem());
+        // Movement
+        add(new Sprint());
+        add(new Flight());
+        add(new AirJump());
+        add(new AutoJump());
+        add(new NoFall());
+        add(new GuiMove());
+        // Visuals
+        add(new Fullbright());
+        add(new ESP());
+        add(new TargetESP());
+        add(new ArmorHud());
+        add(new HudModule());
+        // Player
+        add(new AutoRespawn());
+        add(new AutoEat());
+        add(new AutoArmor());
+        add(new AutoTool());
+        add(new ClickPearl());
+        add(new AntiAFK());
+        // Misc
+        add(new AutoLeave());
+    }
+
+    private static void add(Module m) {
+        MODULES.add(m);
+        BY_CAT.computeIfAbsent(m.category, c -> new ArrayList<>()).add(m);
+    }
+
+    public static void clear() {
         MODULES.clear();
-        MODULES.add(new KillAura());
-        MODULES.add(new Criticals());
-        MODULES.add(new TriggerBot());
-        MODULES.add(new Sprint());
-        MODULES.add(new Fullbright());
-        MODULES.add(new HudModule());
+        BY_CAT.clear();
     }
 
     public static List<Module> all() {
@@ -34,9 +60,7 @@ public final class ModuleManager {
     }
 
     public static List<Module> byCategory(Category category) {
-        List<Module> out = new ArrayList<>();
-        for (Module m : MODULES) if (m.category == category) out.add(m);
-        return out;
+        return BY_CAT.getOrDefault(category, Collections.emptyList());
     }
 
     public static <T extends Module> T get(Class<T> type) {
@@ -46,31 +70,35 @@ public final class ModuleManager {
 
     public static void tickPre(MinecraftClient mc) {
         handleKeys(mc);
-        for (Module m : MODULES) if (m.isEnabled()) run(m, true);
+        for (int i = 0; i < MODULES.size(); i++) {
+            Module m = MODULES.get(i);
+            if (m.isEnabled()) run(m, true);
+        }
     }
 
     public static void tickPost() {
-        for (Module m : MODULES) if (m.isEnabled()) run(m, false);
+        for (int i = 0; i < MODULES.size(); i++) {
+            Module m = MODULES.get(i);
+            if (m.isEnabled()) run(m, false);
+        }
     }
 
     private static void run(Module m, boolean pre) {
         try {
-            if (pre) m.onPreTick();
-            else m.onTick();
+            if (pre) m.onPreTick(); else m.onTick();
         } catch (Throwable t) {
-            // Один сломанный модуль не должен ронять игру — отключаем и пишем в лог.
-            AuraMod.LOGGER.error("Module {} crashed and was disabled", m.name, t);
-            m.setEnabled(false);
+            AuraMod.LOGGER.error("Module {} failed on {}", m.name, pre ? "preTick" : "tick", t);
+            m.setEnabledQuiet(false);
         }
     }
 
     private static void handleKeys(MinecraftClient mc) {
-        if (mc.currentScreen != null) return;
-        long handle = mc.getWindow().getHandle();
-        for (Module m : MODULES) {
+        boolean canToggle = mc.currentScreen == null;
+        for (int i = 0; i < MODULES.size(); i++) {
+            Module m = MODULES.get(i);
             if (m.key < 0) continue;
-            boolean down = InputUtil.isKeyPressed(handle, m.key);
-            if (down && !m.keyDown) m.toggle();
+            boolean down = Keys.key(m.key);
+            if (down && !m.keyDown && canToggle) m.toggle();
             m.keyDown = down;
         }
     }
