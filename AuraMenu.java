@@ -10,6 +10,7 @@ import com.example.aura.setting.Setting;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 
 import java.util.*;
@@ -36,6 +37,8 @@ public class AuraMenu extends Screen {
     private float appear;
     private long lastNs = System.nanoTime();
     private Hit dragging;
+    private Module binding;
+    private final Map<Integer, String> keyNames = new HashMap<>();
 
     public AuraMenu() {
         super(Text.literal("Aura"));
@@ -94,7 +97,7 @@ public class AuraMenu extends Screen {
         String shown = query.isEmpty() ? "Search" : query + ((System.currentTimeMillis() / 500 % 2 == 0) ? "_" : "");
         g.drawText(tr, shown, sx + (sw - tr.getWidth(shown)) / 2, sy + 4,
                 MenuStyle.alpha(query.isEmpty() ? MenuStyle.MUTED : MenuStyle.TEXT, a), false);
-        String hint = "ЛКМ - вкл/выкл   ПКМ - настройки";
+        String hint = "ЛКМ - вкл/выкл   ПКМ - настройки   СКМ - бинд";
         g.drawText(tr, hint, (width - tr.getWidth(hint)) / 2, sy + 20, MenuStyle.alpha(MenuStyle.MUTED, a * 0.8f), false);
     }
 
@@ -116,9 +119,13 @@ public class AuraMenu extends Screen {
             if (hv > 0.01f) MenuStyle.rrect(g, rx, ry, rw, ROW_H, 3, MenuStyle.alpha(MenuStyle.ROW_HOVER, a * hv));
             int color = on ? MenuStyle.TEXT : MenuStyle.lerp(MenuStyle.MUTED, MenuStyle.TEXT, hv);
             g.drawText(tr, m.name, rx + 4, ry + 4, MenuStyle.alpha(color, a), false);
-            if (!m.settings.isEmpty()) {
-                String mark = open ? "-" : "...";
-                g.drawText(tr, mark, rx + rw - tr.getWidth(mark) - 4, ry + 4, MenuStyle.alpha(MenuStyle.MUTED, a), false);
+            String mark = null;
+            if (binding == m) mark = "[...]";
+            else if (m.key >= 0) mark = "[" + keyName(m.key) + "]";
+            else if (!m.settings.isEmpty()) mark = open ? "-" : "...";
+            if (mark != null) {
+                g.drawText(tr, mark, rx + rw - tr.getWidth(mark) - 4, ry + 4,
+                        MenuStyle.alpha(binding == m ? MenuStyle.ACCENT : MenuStyle.MUTED, a), false);
             }
             if (on) g.fill(rx, ry + 3, rx + 1, ry + ROW_H - 3, MenuStyle.alpha(MenuStyle.ACCENT, a));
             hits.add(new Hit(rx, Math.max(ry, clipTop), rw, Math.min(ry + ROW_H, clipBot) - Math.max(ry, clipTop), m, null));
@@ -202,6 +209,7 @@ public class AuraMenu extends Screen {
             if (!h.in(mx, my)) continue;
             if (h.setting() == null) {
                 if (button == 0) h.module().toggle();
+                else if (button == 2) binding = (binding == h.module()) ? null : h.module();
                 else if (button == 1 && !h.module().settings.isEmpty() && !expanded.remove(h.module())) expanded.add(h.module());
             } else if (h.setting() instanceof BoolSetting b && button == 0) {
                 b.toggle();
@@ -241,8 +249,23 @@ public class AuraMenu extends Screen {
         return super.charTyped(chr, modifiers);
     }
 
+    private String keyName(int key) {
+        return keyNames.computeIfAbsent(key, k -> {
+            String t = InputUtil.fromKeyCode(k, 0).getTranslationKey();
+            int i = t.lastIndexOf('.');
+            String n = (i >= 0 ? t.substring(i + 1) : t).toUpperCase(Locale.ROOT);
+            return n.length() > 5 ? n.substring(0, 5) : n;
+        });
+    }
+
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (binding != null) {
+            // Esc / Backspace / Delete - снять бинд
+            binding.key = (key == 256 || key == 259 || key == 261) ? -1 : key;
+            binding = null;
+            return true;
+        }
         if (key == 259 && !query.isEmpty()) { query = query.substring(0, query.length() - 1); return true; } // Backspace
         return super.keyPressed(key, scan, mods);
     }
